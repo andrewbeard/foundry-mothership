@@ -6,6 +6,7 @@ export class MothershipActor extends Actor {
 
   //Augment the basic actor data with additional dynamic data.
   prepareData() {
+    //console.log(game.release.generation);
     super.prepareData();
 
     const actorData = this;
@@ -126,7 +127,7 @@ export class MothershipActor extends Actor {
         },
         distress_signal: {
           roll: {
-            human: `You send out a distress signal and wait for help.`
+            human: `You put your ship on emergency power, seal yourselves in cryopods, send out a Distress Signal, and wait for help. It’s a long shot, but sometimes it’s the only shot you’ve got. Will you be found?`
           }
         },
         maintenance_issues: {
@@ -309,12 +310,12 @@ export class MothershipActor extends Actor {
             human: `systems/mosh/images/icons/ui/attributes/health.png`
           },
           hitCeiling: {
-            android: `@UUID[Compendium.mosh.macros_hotbar_1e.NsRHfRuuNGPfkYVf]{Make a Death Save}`,
-            human: `@UUID[Compendium.mosh.macros_hotbar_1e.NsRHfRuuNGPfkYVf]{Make a Death Save}`
+            android: `You are about to to die, make your final moments count. Let your death meaningful with your final action.<br><br>@UUID[Compendium.mosh.macros_hotbar_1e.NsRHfRuuNGPfkYVf]{Make a Death Save}`,
+            human: `You are about to to die, make your final moments count. Let your death meaningful with your final action.<br><br>@UUID[Compendium.mosh.macros_hotbar_1e.NsRHfRuuNGPfkYVf]{Make a Death Save}`
           },
           pastCeiling: {
-            android: `@UUID[Compendium.mosh.macros_hotbar_1e.NsRHfRuuNGPfkYVf]{Make a Death Save}`,
-            human: `@UUID[Compendium.mosh.macros_hotbar_1e.NsRHfRuuNGPfkYVf]{Make a Death Save}`
+            android: `You are about to to die, make your final moments count. Let your death meaningful with your final action.<br><br>@UUID[Compendium.mosh.macros_hotbar_1e.NsRHfRuuNGPfkYVf]{Make a Death Save}`,
+            human: `You are about to to die, make your final moments count. Let your death meaningful with your final action.<br><br>@UUID[Compendium.mosh.macros_hotbar_1e.NsRHfRuuNGPfkYVf]{Make a Death Save}`
           },
           decrease: {
             android: `System resources free up and you feel energized.`,
@@ -1418,9 +1419,10 @@ export class MothershipActor extends Actor {
     let msgDesc = ``;
     let flavorText = ``;
     let woundText = ``;
+    let tableResultType = ``;
     let tableResultEdited = ``;
     let tableResultFooter = ``;
-    let chatId = randomID();
+    let chatId = (game.release.generation >= 12 ? foundry.utils.randomID(): randomID())
     let rollTarget = null;
     let valueAddress = [];
     let specialRoll = null;
@@ -1700,11 +1702,20 @@ export class MothershipActor extends Actor {
       if (specialRoll === 'maintenanceCheck' && useCalm && parsedRollResult.success && parsedRollResult.critical) {
         flavorText = flavorText + ` Gain 1d10 Calm.<br><br>@UUID[Compendium.mosh.macros_triggered_1e.k2TtLFOG9mGaWVx3]{+1d10 Calm}`;
       }
+    //set table result type (using first value)
+    if (tableResult[0].type === 0 || tableResult[0].type === 'text') {
+      tableResultType = `text`;
+    } else if (tableResult[0].type === 1 || tableResult[0].type === 'document') {
+      tableResultType = `document`;
+    } else {
+      tableResultType = `unknown`;
+    }
 	  //generate chat message
       //prepare data
       let messageData = {
         actor: this,
         tableResult: tableResult,
+        tableResultType: tableResultType,
         tableResultEdited: tableResultEdited,
         tableResultFooter: tableResultFooter,
         parsedRollResult: parsedRollResult,
@@ -1729,11 +1740,18 @@ export class MothershipActor extends Actor {
         content: messageContent
       },{keepId:true});
       if(game.modules.get("dice-so-nice").active){
+        //log what was done
+        console.log(`Rolled on table ID: ${tableId}, with: rollString:${rollString}, aimFor:${aimFor}, zeroBased:${zeroBased}, checkCrit:${checkCrit}, rollAgainst:${rollAgainst}, comparison:${comparison}`);
+        //return messageData
+        return [messageData];
         //wait for dice
         await game.dice3d.waitFor3DAnimationByMessageID(chatId);
       }
-    //log what was done
-    console.log(`Rolled on table ID: ${tableId}, with: rollString:${rollString}, aimFor:${aimFor}, zeroBased:${zeroBased}, checkCrit:${checkCrit}, rollAgainst:${rollAgainst}, comparison:${comparison}`);
+    //will come back later to do optional chat message  
+      ////log what was done
+      //console.log(`Rolled on table ID: ${tableId}, with: rollString:${rollString}, aimFor:${aimFor}, zeroBased:${zeroBased}, checkCrit:${checkCrit}, rollAgainst:${rollAgainst}, comparison:${comparison}`);
+      ////return messageData
+      //return [messageData];
   }
 
   //central adding addribute function | TAKES '1d10','low' | RETURNS player selected attribute. If parameters are null, it asks the player.
@@ -2157,7 +2175,7 @@ export class MothershipActor extends Actor {
     let woundEffect = ``;
     let msgHeader = ``;
     let msgImgPath = ``;
-    let chatId = randomID();
+    let chatId = (game.release.generation >= 12 ? foundry.utils.randomID(): randomID());
     let firstEdition = game.settings.get('mosh','firstEdition');
     let useCalm = game.settings.get('mosh','useCalm');
     //customize this roll if its a unique use-case
@@ -2236,8 +2254,8 @@ export class MothershipActor extends Actor {
           });
         //log what was done
         console.log(`Rolled damage on:${weapon.name}`);
-        //exit
-        return;
+        //return messageData
+        return [messageData];
       }
       //rest save
       if (attribute === 'restSave') {
@@ -2734,13 +2752,20 @@ export class MothershipActor extends Actor {
         speaker: {actor: this.id, token: this.token, alias: this.name},
         content: messageContent
       },{keepId:true});
-
+      //is DSN active?
       if(game.modules.get("dice-so-nice").active){
+        //log what was done
+        console.log(`Rolled a check on: ${attribute}, with: rollString:${rollString}, aimFor:${aimFor}, skill:${skill}, skillValue:${skillValue}.`);
+        //return messageData
+        return [messageData];
         //wait for dice
         await game.dice3d.waitFor3DAnimationByMessageID(chatId);
       }
-    //log what was done
-    console.log(`Rolled a check on: ${attribute}, with: rollString:${rollString}, aimFor:${aimFor}, skill:${skill}, skillValue:${skillValue}, weapon:${weapon.name}`);
+    //will come back here and turn on optional chat message
+      ////log what was done
+      //console.log(`Rolled a check on: ${attribute}, with: rollString:${rollString}, aimFor:${aimFor}, skill:${skill}, skillValue:${skillValue}.`);
+      ////return messageData
+      //return [messageData];
   }
 
   //central function to modify actors | TAKES 'system.other.stress.value',-1,'-1d5',true | RETURNS change details, and optional chat message
@@ -2763,7 +2788,7 @@ export class MothershipActor extends Actor {
     let msgFlavor = ``;
     let msgOutcome = ``;
     let msgChange = ``;
-    let chatId = randomID();
+    let chatId = (game.release.generation >= 12 ? foundry.utils.randomID(): randomID())
     let halfDamage = false;
     let firstEdition = game.settings.get('mosh','firstEdition');
     let useCalm = game.settings.get('mosh','useCalm');
@@ -2854,9 +2879,9 @@ export class MothershipActor extends Actor {
           }
           //get modification description
             //calculate change type
-            if (modifySurplus < 0) {
+            if (modifySurplus < 0 && modifyDifference === 0) {
               msgAction = 'pastFloor';
-            } else if (modifySurplus > 0) {
+            } else if (modifySurplus > 0 && modifyDifference === 0) {
               msgAction = 'pastCeiling';
             } else if (modifySurplus === 0 && modifyNew === modifyMinimum && modifyChange != 0) {
               msgAction = 'hitFloor';
@@ -2870,7 +2895,10 @@ export class MothershipActor extends Actor {
             //set default message outcome
             if (msgAction === 'increase' || msgAction === 'decrease') {
               msgOutcome = fieldPrefix + fieldLabel.reduce((a, v) => a[v], this) + ` ` + msgChange + ` from <strong>${modifyCurrent}</strong> to <strong>${modifyNew}</strong>.`;
-            //set message outcome for stress going from < 20 to > 20
+            //set message outcome for past ceiling or floor
+            } else if (msgAction === 'pastFloor' || msgAction === 'pastCeiling') {
+              msgOutcome = this.getFlavorText('attribute',fieldId,msgAction);
+              //set message outcome for stress going from < 20 to > 20
             } else if (fieldId === 'stress' && modifyCurrent < modifyMaximum && modifySurplus > 0) {
               msgOutcome = this.getFlavorText('attribute',fieldId,msgAction) + ` ` + fieldPrefix + fieldLabel.reduce((a, v) => a[v], this) + ` ` + msgChange + ` from <strong>${modifyCurrent}</strong> to <strong>${modifyNew}</strong>. <strong>Reduce the most relevant Stat or Save by ${modifySurplus}</strong>.`;
             //set message outcome for stress going from 20 to > 20
@@ -2981,9 +3009,9 @@ export class MothershipActor extends Actor {
               }
               //get modification description
                 //calculate change type
-                if (modifySurplus < 0) {
+                if (modifySurplus < 0 && modifyDifference === 0) {
                   msgAction = 'pastFloor';
-                } else if (modifySurplus > 0) {
+                } else if (modifySurplus > 0 && modifyDifference === 0) {
                   msgAction = 'pastCeiling';
                 } else if (modifySurplus === 0 && modifyNew === modifyMinimum && modifyChange != 0) {
                   msgAction = 'hitFloor';
@@ -2997,6 +3025,9 @@ export class MothershipActor extends Actor {
                 //set default message outcome
                 if (msgAction === 'increase' || msgAction === 'decrease') {
                   msgOutcome = fieldPrefix + fieldLabel.reduce((a, v) => a[v], this) + ` ` + msgChange + ` from <strong>${modifyCurrent}</strong> to <strong>${modifyNew}</strong>.`;
+                //set message outcome for past ceiling or floor
+                } else if (msgAction === 'pastFloor' || msgAction === 'pastCeiling') {
+                  msgOutcome = this.getFlavorText('attribute',fieldId,msgAction);
                 //set message outcome for stress going from < 20 to > 20
                 } else if (fieldId === 'stress' && modifyCurrent < modifyMaximum && modifySurplus > 0) {
                   msgOutcome = this.getFlavorText('attribute',fieldId,msgAction) + ` ` + fieldPrefix + fieldLabel.reduce((a, v) => a[v], this) + ` ` + msgChange + ` from <strong>${modifyCurrent}</strong> to <strong>${modifyNew}</strong>. <strong>Reduce the most relevant Stat or Save by ${modifySurplus}</strong>.`;
@@ -3042,6 +3073,10 @@ export class MothershipActor extends Actor {
                   content: messageContent
                 },{keepId:true});
                 if(game.modules.get("dice-so-nice").active){
+                  //log what was done
+                  console.log(`Modified actor: ${this.name}, with: fieldAddress:${fieldAddress}, modValue:${modValue}, modRollString:${modRollString}, outputChatMsg:${outputChatMsg}`);     
+                  //return modification values
+                  return [msgFlavor,msgOutcome,msgChange];
                   //wait for dice
                   await game.dice3d.waitFor3DAnimationByMessageID(chatId);
                 }
@@ -3063,7 +3098,7 @@ export class MothershipActor extends Actor {
     let oldValue = 0;
     let newValue = 0;
     let flavorText = ``;
-    let chatId = randomID();
+    let chatId = (game.release.generation >= 12 ? foundry.utils.randomID(): randomID())
     //find where this item is located
       //get current compendium
       let compendium = game.packs;
@@ -3120,7 +3155,7 @@ export class MothershipActor extends Actor {
         //increase severity of the condition
         this.items.getName(itemData.name).update({'system.quantity': addAmount});
         //create message text
-        flavorText = `You add <strong>` + addAmount + `</strong> of these to your inventory..`;
+        flavorText = `You add <strong>` + addAmount + `</strong> of these to your inventory.`;
       //if this is a condition, add it
       } else if (itemData.type === 'condition') {
         //give the character the item
@@ -3225,9 +3260,15 @@ export class MothershipActor extends Actor {
     let messageTemplate = ``;
     let messageContent = ``;
     let msgBody = ``;
-    let chatId = randomID();
+    let chatId = (game.release.generation >= 12 ? foundry.utils.randomID(): randomID())
     //dupe item to work with
-    let item = duplicate(this.getEmbeddedDocument('Item',itemId));
+    var item;
+    if (game.release.generation >= 12) {
+      item = foundry.utils.duplicate(this.getEmbeddedDocument('Item',itemId));
+    } else {
+      item = duplicate(this.getEmbeddedDocument('Item',itemId));
+    }
+
     //reload
     if (!item.system.useAmmo) {
       //exit function (it should not be possible to get here)
@@ -3288,7 +3329,7 @@ export class MothershipActor extends Actor {
   //make the player take bleeding damage
   async takeBleedingDamage() {
     //init vars
-    let chatId = randomID();  
+    let chatId = (game.release.generation >= 12 ? foundry.utils.randomID(): randomID())
     //determine bleeding amount
     let healthLost = this.items.getName("Bleeding").system.severity*-1;
     //run the function for the player's 'Selected Character'
@@ -3328,7 +3369,7 @@ export class MothershipActor extends Actor {
   //make the player take radiation damage
   async takeRadiationDamage() {
     //init vars
-    let chatId = randomID();  
+    let chatId = (game.release.generation >= 12 ? foundry.utils.randomID(): randomID())
     //reduce all stats and saves by 1
     this.modifyActor('system.stats.strength.value',-1,null,false);
     this.modifyActor('system.stats.speed.value',-1,null,false);
@@ -3372,7 +3413,7 @@ export class MothershipActor extends Actor {
   //make the player take radiation damage
   async takeCryoDamage(rollString) {
     //init vars
-    let chatId = randomID();
+    let chatId = (game.release.generation >= 12 ? foundry.utils.randomID(): randomID())
     //roll the dice
       //parse the roll string
       let parsedRollString = this.parseRollString(rollString,'low');
@@ -3607,7 +3648,7 @@ export class MothershipActor extends Actor {
           icon: '<i class="fas fa-check"></i>'
         };
       //render dialog
-      const dialog = new Dialog(dialogData,{width: 600,height: 567}).render(true);
+      const dialog = new Dialog(dialogData,{width: 600,height: 580}).render(true);
       });
     
   }
@@ -3882,7 +3923,12 @@ export class MothershipActor extends Actor {
 
   // print description
   printDescription(itemId, options = { event: null }) {
-    let item = duplicate(this.getEmbeddedDocument('Item',itemId));
+    var item;
+    if (game.release.generation >= 12) {
+      item = foundry.utils.duplicate(this.getEmbeddedDocument('Item',itemId));
+    } else {
+      item = duplicate(this.getEmbeddedDocument('Item',itemId));
+    }
     this.chatDesc(item);
   }
 
